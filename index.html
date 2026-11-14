@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>血壓日記</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#ffffff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="血壓日記">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,500;7..72,600&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: clinical and calm, like a well-kept home health log.
+   IDEA: the paper blood-pressure record card a clinic hands you, filled in daily.
+   PICTURE: the month's chart, systolic carmine above diastolic prussian, with 130/80 rules.
+   COLOUR and TYPE: white ground, ink, two inks for the two pressures; Literata numerals, Noto Sans TC text.
+   LAYOUT: modest title + month switcher, then chart beside the entry form, stats and log beneath. */
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#0f1217);--ink:light-dark(#10131a,#e7e9ee);--mute:light-dark(#5d6573,#9aa2b1);--line:light-dark(#e3e6eb,#252a33);--card:light-dark(#f6f7f9,#161a21);--sys:light-dark(#c1121f,#ff5c66);--dia:light-dark(#0b4f8a,#6fa9e2);--warn:light-dark(#fbeaea,#3a1518)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);background:var(--bg);color:var(--ink);font:16px/1.55 "Noto Sans TC",system-ui,sans-serif;overflow-x:clip}
+.num{font-family:Literata,Georgia,serif;font-variant-numeric:tabular-nums}
+.band{padding:clamp(20px,3vw,40px) max(5vw,16px);max-width:1240px;margin:0 auto}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;border-bottom:1px solid var(--line)}
+h1{font-size:clamp(28px,4vw,40px);line-height:1.05;margin:0;font-weight:700;flex:1 1 auto}
+h2{font-size:20px;margin:0 0 12px;font-weight:700}
+.nav{display:flex;align-items:center;gap:4px}
+.nav b{font-size:18px;min-width:9.5em;text-align:center;white-space:nowrap}
+button{font:inherit;min-height:44px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:0 14px;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--dia);outline-offset:2px}
+.pri{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:700}
+.icon{width:44px;padding:0;font-size:20px}.icon:disabled{opacity:.35;cursor:default}
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:0;border-radius:0;padding:0 12px;border-left:1px solid var(--line)}.seg button:first-child{border-left:0}
+.seg button[aria-pressed=true]{background:var(--ink);color:var(--bg);font-weight:700}
+.delta{font-size:14px;color:var(--mute)}.delta b{font-weight:700}
+tr.go{cursor:pointer}
+.imp{background:var(--card);border-radius:14px;padding:18px;display:grid;gap:12px;margin-bottom:16px}
+textarea{font:15px/1.5 ui-monospace,Menlo,monospace;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:10px;width:100%;resize:vertical}
+.imp .act button{min-height:44px;font-size:16px}tr.go:hover td{background:var(--card)}
+.top{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:28px;align-items:start}
+.sum{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 18px;margin-bottom:6px}
+.big{font-size:clamp(40px,7vw,60px);line-height:1;font-weight:600;white-space:nowrap}
+.big .s{color:var(--sys)}.big .d{color:var(--dia)}
+.chip{display:inline-block;padding:3px 10px;border-radius:99px;font-size:14px;font-weight:700;color:#fff;white-space:nowrap}
+.mute{color:var(--mute);font-size:14px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:14px;color:var(--mute);margin:8px 0 4px}
+.legend i{display:inline-block;width:18px;height:3px;vertical-align:middle;margin-right:6px;border-radius:2px}
+.fig{position:relative;min-height:320px}.fig>svg{position:absolute;inset:0;width:100%;height:100%}
+.gl{stroke:var(--line)}.tk{fill:var(--mute);font-size:12px;font-family:Literata,serif}
+.ref{stroke-dasharray:4 4;stroke-width:1.2}
+form{background:var(--card);border-radius:14px;padding:20px;display:grid;gap:14px}
+.row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.row3{grid-template-columns:repeat(3,minmax(0,1fr))}
+label{display:grid;gap:4px;font-size:14px;color:var(--mute)}
+input,select{font:inherit;font-size:16px;min-height:44px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:0 10px;width:100%}
+input.n{font-family:Literata,serif;font-size:22px;text-align:right}
+.tf{display:grid;gap:4px;font-size:14px;color:var(--mute)}.hm{display:flex;align-items:center;gap:4px}.hm select{font-family:Literata,serif;font-size:20px;text-align:center;padding:0 8px;flex:1 1 0}.hm b{color:var(--ink)}.hm button{flex:0 0 auto;padding:0 10px;font-size:14px}
+.err{color:var(--sys);font-size:14px;min-height:1.2em;margin:0}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.stats div{background:var(--bg);padding:14px 16px}
+.stats b{display:block;font-size:24px;font-weight:600;white-space:nowrap}
+.dist{display:flex;height:26px;border-radius:8px;overflow:hidden;margin:14px 0 6px;background:var(--line)}
+.dist span{height:100%}
+.dl{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:14px;color:var(--mute)}
+.dl i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th{text-align:left;font-weight:500;color:var(--mute);font-size:14px;border-bottom:1px solid var(--line);padding:8px}
+td{border-bottom:1px solid var(--line);padding:8px;vertical-align:middle}
+td.r,th.r{text-align:right;white-space:nowrap}
+tr.hi td:first-child{box-shadow:inset 3px 0 var(--sys)}
+.act{display:flex;gap:6px;justify-content:flex-end}.act button{min-height:36px;padding:0 10px;font-size:14px}
+.bar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;display:none;gap:14px;align-items:center;z-index:9;max-width:92vw}
+.toast button{min-height:34px;background:transparent;color:inherit;border-color:currentColor}
+.demo{background:var(--warn);border-radius:10px;padding:8px 12px;font-size:14px;margin:0 0 10px}
+footer{font-size:14px;color:var(--mute);border-top:1px solid var(--line)}
+footer p{max-width:70ch;margin:0 0 8px}
+@media(max-width:820px){.top{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:600px){table{font-size:13px}.stack thead{display:none}.stack tr{display:grid;padding-block:10px;border-bottom:1px solid var(--line)}.stack td{display:flex;justify-content:space-between;gap:12px;border:0;padding:3px 4px}.stack td::before{content:attr(data-l);color:var(--mute)}.act{justify-content:flex-end}.nav b{min-width:7.5em}}
+@media(prefers-reduced-motion:no-preference){.fig svg{animation:fi .5s ease-out}@keyframes fi{from{opacity:.2}to{opacity:1}}}
+</style>
+</head>
+<body>
+<header class="band">
+  <h1>血壓日記</h1>
+  <div class="nav">
+    <button class="icon" id="prev" aria-label="上個月">‹</button>
+    <b id="mon" class="num"></b>
+    <button class="icon" id="next" aria-label="下個月">›</button>
+  </div>
+  <div class="seg" id="seg" role="group" aria-label="統計範圍"><button data-s="1">月</button><button data-s="6">半年</button><button data-s="12">一年</button><button data-s="36">三年</button><button data-s="60">五年</button></div>
+  <button class="pri" id="goAdd">＋ 新增量測</button>
+</header>
+
+<main>
+<section class="band top">
+  <div>
+    <p class="demo" id="demo" hidden>以下是示範資料，存下你的第一筆量測後就會消失。</p>
+    <div class="sum">
+      <span class="big num" id="avg"><span class="s">—</span>/<span class="d">—</span></span>
+      <span><span class="chip" id="chip" hidden></span><br><span class="mute" id="avgNote">平均（mmHg）</span><br><span class="delta" id="delta"></span></span>
+    </div>
+    <div class="legend"><span><i style="background:var(--sys)"></i>收縮壓</span><span><i style="background:var(--dia)"></i>舒張壓</span><span id="lgUnit">線：每日平均；點：每一次量測</span><span>虛線：130 / 80</span></div>
+    <div class="fig"><svg id="chart" role="img" aria-label="血壓趨勢圖"></svg></div>
+  </div>
+
+  <form id="f" novalidate>
+    <h2 id="fTitle">新增量測</h2>
+    <div class="row" style="grid-template-columns:minmax(0,1fr)">
+      <label>日期<input type="date" id="fDate" required></label>
+      <div class="tf"><span>時間（24 小時制）</span><div class="hm"><select id="fH" aria-label="時"></select><b>:</b><select id="fM" aria-label="分"></select><button type="button" id="fNow">現在</button></div><input type="hidden" id="fTime"></div>
+    </div>
+    <label>時段<select id="fSlot"><option>早上</option><option>中午</option><option>下午</option><option>晚上</option><option>睡前</option><option>其他</option></select></label>
+    <div class="row row3">
+      <label>收縮壓<input class="n" id="fSys" inputmode="numeric" placeholder="120"></label>
+      <label>舒張壓<input class="n" id="fDia" inputmode="numeric" placeholder="80"></label>
+      <label>心跳<input class="n" id="fPul" inputmode="numeric" placeholder="70"></label>
+    </div>
+    <label>備註<input id="fNote" placeholder="例如：起床後、服藥前、運動後" maxlength="80"></label>
+    <p class="err" id="fErr"></p>
+    <div class="row">
+      <button type="button" id="fCancel" hidden>取消編輯</button>
+      <button type="submit" class="pri" id="fSave" style="grid-column:-2">儲存</button>
+    </div>
+    <p class="mute" id="today" style="margin:0"></p>
+    <p class="mute" id="status" style="margin:0">讀取中…</p>
+  </form>
+</section>
+
+<section class="band">
+  <h2 id="stTitle">本月統計</h2>
+  <div class="stats" id="stats"></div>
+  <div class="dist" id="dist" aria-label="各血壓分級所占比例"></div>
+  <div class="dl" id="dl"></div>
+</section>
+
+<section class="band">
+  <div class="bar"><h2 style="margin:0" id="lsTitle">本月紀錄</h2><div class="act" style="flex-wrap:wrap"><button id="impOpen">匯入備份</button><button id="copy">複製這段期間的資料（CSV）</button></div></div>
+  <div class="imp" id="imp" hidden>
+    <h2 style="font-size:18px">匯入備份</h2>
+    <p class="mute" style="margin:0">把之前用「複製資料」得到的內容貼在下面，或選擇存好的 .csv／.txt 檔。已經有的紀錄會自動略過，不會重複。</p>
+    <textarea id="impText" rows="6" placeholder="日期,時間,時段,收縮壓,舒張壓,心跳,分級,備註&#10;2026-11-01,07:20,早上,128,82,70,偏高,&quot;&quot;"></textarea>
+    <label class="file">或選擇檔案<input type="file" id="impFile" accept=".csv,.txt,text/csv,text/plain"></label>
+    <p id="impMsg" class="mute" style="margin:0"></p>
+    <div class="act" style="justify-content:flex-start"><button class="pri" id="impGo" disabled>匯入</button><button id="impCancel">取消</button></div>
+  </div>
+  <table class="stack">
+    <thead id="th"></thead>
+    <tbody id="tb"></tbody>
+  </table>
+</section>
+</main>
+
+<footer class="band">
+  <p>分級參考：正常 &lt;120/80；偏高 120–129 且 &lt;80；高血壓第一期 130–139 或 80–89；第二期 ≥140 或 ≥90；≥180 或 ≥120 為危急。台灣 2022 高血壓指引建議居家血壓目標 &lt;130/80，量測可依「722 原則」：連續 7 天、早晚各一次、每次量 2 遍。一天量多次時，每日平均會納入當天所有量測；半年以上的圖表改以每週或每月平均呈現。</p>
+  <p>紀錄只存在這支手機的 app 裡，不會上傳到任何地方。刪除 app 或清除瀏覽器資料會讓紀錄消失，請定期用「複製資料」備份，換手機時用「匯入備份」還原。</p>
+  <p>本工具只用於記錄與整理，不能取代醫師診斷；數值持續偏高或出現胸痛、頭痛、視力模糊等症狀，請就醫。</p>
+</footer>
+
+<div class="toast" id="toast"><span id="tMsg"></span><button id="tUndo" hidden>復原</button></div>
+
+<script>
+{
+const $=s=>document.querySelector(s);
+const pad=n=>String(n).padStart(2,'0');
+const isoD=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const dim=(y,m)=>new Date(y,m+1,0).getDate();
+const mk=(y,m)=>{const d=new Date(y,m,1);return d.getFullYear()+'-'+pad(d.getMonth()+1)};
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const CATS=[['正常','#5f7d95'],['偏高','#b88a00'],['第一期','#d9661f'],['第二期','#c1121f'],['危急','#6d0010']];
+const cat=(s,d)=>s>=180||d>=120?4:s>=140||d>=90?3:s>=130||d>=80?2:s>=120?1:0;
+const SPANS={1:'月',6:'半年',12:'一年',36:'三年',60:'五年'};
+const slotOf=h=>h<11?'早上':h<14?'中午':h<17?'下午':h<21?'晚上':'睡前';
+const now=new Date(),nowKey=mk(now.getFullYear(),now.getMonth()),todayIso=isoD(now);
+let rows=[],cur={y:now.getFullYear(),m:now.getMonth()},span=1,store=null,editId=null,lastDel=null;
+try{const v=+localStorage.getItem('bp-span');if(SPANS[v])span=v}catch(e){}
+
+/* window = `span` months ending at the anchor month */
+const win=(off=0)=>{const e=mk(cur.y,cur.m-off*span),s=mk(cur.y,cur.m-off*span-span+1);return{s,e}};
+const inWin=(r,w)=>{const k=r.date.slice(0,7);return k>=w.s&&k<=w.e};
+
+let demoCache=null;
+function demoAll(){
+  if(demoCache)return demoCache;
+  const out=[];let sd=11;const r=()=>(sd=(sd*9301+49297)%233280)/233280;
+  const d=new Date(now.getFullYear()-5,now.getMonth(),1);
+  for(;d<=now;d.setDate(d.getDate()+1)){
+    const age=(now-d)/864e5/365;
+    const sets=[['早上','07:20',129,82],['晚上','21:40',121,77]];
+    if(r()<.3)sets.splice(1,0,['中午','12:30',124,79]);
+    for(const[slot,t,bs,bd]of sets){
+      if(r()<.12)continue;
+      out.push({id:'demo'+isoD(d)+slot,date:isoD(d),time:t,slot,sys:Math.round(bs+age*3-Math.sin(d.getMonth()/1.9)*3+r()*14-7),dia:Math.round(bd+age*1.5+r()*8-4),pulse:Math.round(66+r()*12),note:''});
+    }
+  }
+  return demoCache=out;
+}
+const isDemo=()=>rows.length===0;
+const src=()=>isDemo()?demoAll():rows;
+const winRows=(off=0)=>{const w=win(off);return src().filter(r=>r.date&&inWin(r,w))};
+const avg=(a,k)=>a.length?a.reduce((s,r)=>s+(+r[k]||0),0)/a.length:NaN;
+const f0=v=>isNaN(v)?'—':Math.round(v);
+const md=r=>r?(+r.date.slice(5,7))+'/'+(+r.date.slice(8)):'';
+const ymd=r=>r?r.date.slice(0,4)+'/'+md(r):'';
+
+function draw(){
+  const s=$('#chart'),W=s.clientWidth,H=s.clientHeight;if(!W)return;
+  const list=winRows(),nar=W<520,w=win();
+  const L=36,R=nar?10:58,T=14,B=28;
+  if(!list.length){s.innerHTML=`<text x="${W/2}" y="${H/2}" text-anchor="middle" class="tk" style="font-size:15px">這段期間還沒有紀錄</text>`;return}
+  const [sy,sm]=w.s.split('-').map(Number),[ey,em]=w.e.split('-').map(Number);
+  const t0=new Date(sy,sm-1,1),t1=new Date(ey,em,1),tot=Math.round((t1-t0)/864e5);
+  const di=ds=>{const[a,b,c]=ds.split('-').map(Number);return Math.round((new Date(a,b-1,c)-t0)/864e5)};
+  const unit=span===1?'day':span<=12?'week':'month';
+  const by={};
+  for(const r of list){const i=di(r.date);const k=unit==='day'?i:unit==='week'?Math.floor(i/7):r.date.slice(0,7);(by[k]=by[k]||[]).push([i,r])}
+  const pts=Object.values(by).map(a=>({x:a.reduce((s,p)=>s+p[0],0)/a.length,sys:avg(a.map(p=>p[1]),'sys'),dia:avg(a.map(p=>p[1]),'dia')})).sort((a,b)=>a.x-b.x);
+  const vals=(span===1?list.flatMap(r=>[+r.sys,+r.dia]):pts.flatMap(p=>[p.sys,p.dia]));
+  const lo=Math.floor((Math.min(60,...vals)-5)/10)*10,hi=Math.ceil((Math.max(160,...vals)+5)/10)*10;
+  const x=i=>L+(i+.5)/tot*(W-L-R),y=v=>T+(hi-v)/(hi-lo)*(H-T-B);
+  let g='';
+  for(let v=Math.ceil(lo/20)*20;v<=hi;v+=20)g+=`<line class="gl" x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}"/><text class="tk" x="${L-6}" y="${y(v)+4}" text-anchor="end">${v}</text>`;
+  if(span===1){const n=tot,st=nar?7:5;for(let d=1;d<=n;d+=(d===1?st-1:st))g+=`<text class="tk" x="${x(d-1)}" y="${H-8}" text-anchor="middle">${d}</text>`}
+  else{
+    const every=span===6?1:span===12?(nar?3:2):span===36?(nar?12:6):12;
+    for(let k=0;k<span;k++){const d=new Date(sy,sm-1+k,1),m=d.getMonth();
+      if(k%every&&m!==0)continue;if(span>=36&&m!==0&&m!==6)continue;if(nar&&span>=36&&m!==0)continue;
+      const i=Math.round((d-t0)/864e5),lab=m===0||k===0?(span>12?d.getFullYear():d.getFullYear()+'/1'):(m+1)+'月';
+      const lab2=m===0||k===0?(span>12?d.getFullYear():(k===0?d.getFullYear()+'/'+(m+1):d.getFullYear()+'/1')):(m+1)+'月';
+      g+=`<line class="gl" x1="${x(i)}" x2="${x(i)}" y1="${H-B}" y2="${H-B+4}"/><text class="tk" x="${x(i)}" y="${H-8}" text-anchor="${k===0?'start':'middle'}">${lab2}</text>`}
+  }
+  g+=`<line class="ref" stroke="var(--sys)" x1="${L}" x2="${W-R}" y1="${y(130)}" y2="${y(130)}"/><line class="ref" stroke="var(--dia)" x1="${L}" x2="${W-R}" y1="${y(80)}" y2="${y(80)}"/>`;
+  if(!nar)g+=`<text class="tk" x="${W-R+6}" y="${y(130)+4}" style="fill:var(--sys)">130</text><text class="tk" x="${W-R+6}" y="${y(80)+4}" style="fill:var(--dia)">80</text>`;
+  const path=k=>pts.map((p,i)=>(i?'L':'M')+x(p.x).toFixed(1)+' '+y(p[k]).toFixed(1)).join('');
+  for(const[k,c]of[['sys','var(--sys)'],['dia','var(--dia)']]){
+    if(span===1)g+=list.map(r=>`<circle cx="${x(di(r.date)).toFixed(1)}" cy="${y(+r[k]).toFixed(1)}" r="3" fill="${c}" opacity=".35"/>`).join('');
+    else if(pts.length<80)g+=pts.map(p=>`<circle cx="${x(p.x).toFixed(1)}" cy="${y(p[k]).toFixed(1)}" r="2.6" fill="${c}"/>`).join('');
+    g+=`<path class="ln" pathLength="1" d="${path(k)}" fill="none" stroke="${c}" stroke-width="${span>12?2.6:2.2}" stroke-linejoin="round" stroke-linecap="round"/>`;
+  }
+  s.innerHTML=g;
+}
+
+function render(){
+  const w=win(),one=span===1;
+  document.querySelectorAll('#seg button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.s===span));
+  const [sy,sm]=w.s.split('-').map(Number),[ey,em]=w.e.split('-').map(Number);
+  $('#mon').textContent=one?ey+' 年 '+em+' 月':sy+'/'+sm+' – '+ey+'/'+em;
+  $('#next').disabled=w.e>=nowKey;
+  const nm=one?'本月':'這'+SPANS[span];
+  $('#stTitle').textContent=(one?'本月':SPANS[span])+'統計';
+  $('#lsTitle').textContent=one?'本月紀錄':'每月摘要';
+  $('#lgUnit').textContent=one?'線：每日平均；點：每一次量測':span<=12?'線與點：每週平均':'線：每月平均';
+  $('#demo').hidden=!isDemo();
+  const list=winRows(),as=avg(list,'sys'),ad=avg(list,'dia');
+  $('#avg').innerHTML=`<span class="s">${f0(as)}</span>/<span class="d">${f0(ad)}</span>`;
+  const chip=$('#chip');
+  if(list.length){const c=CATS[cat(Math.round(as),Math.round(ad))];chip.hidden=false;chip.textContent=c[0].startsWith('第')?'高血壓'+c[0]:c[0];chip.style.background=c[1]}else chip.hidden=true;
+  const days=new Set(list.map(r=>r.date)).size;
+  $('#avgNote').textContent=(one?'本月':SPANS[span])+'平均（mmHg）'+(list.length?` · ${list.length} 筆、${days} 天，每天平均 ${(list.length/days).toFixed(1)} 次`:'');
+  const prev=winRows(1);
+  const dl=(a,b)=>{const v=Math.round(a-b);return`<b>${v>0?'+':v<0?'−':'±'}${Math.abs(v)}</b>`};
+  $('#delta').innerHTML=list.length&&prev.length?`較上一${one?'個月':'期'}：收縮 ${dl(as,avg(prev,'sys'))}、舒張 ${dl(ad,avg(prev,'dia'))}`:'';
+  const mx=list.reduce((a,r)=>!a||+r.sys>+a.sys?r:a,null),mn=list.reduce((a,r)=>!a||+r.sys<+a.sys?r:a,null);
+  const am=list.filter(r=>r.slot==='早上'),pm=list.filter(r=>r.slot==='晚上'||r.slot==='睡前');
+  const over=list.filter(r=>+r.sys>=130||+r.dia>=80).length,pul=list.filter(r=>+r.pulse);
+  const dt=r=>r?(one?md(r):ymd(r))+' '+esc(r.time):'';
+  const cell=(t,v,sub)=>`<div><span class="mute">${t}</span><b class="num">${v}</b><span class="mute">${sub||'&nbsp;'}</span></div>`;
+  $('#stats').innerHTML=[
+    cell('最高',mx?mx.sys+'/'+mx.dia:'—',dt(mx)),
+    cell('最低',mn?mn.sys+'/'+mn.dia:'—',dt(mn)),
+    cell('早上平均',am.length?f0(avg(am,'sys'))+'/'+f0(avg(am,'dia')):'—',am.length+' 筆'),
+    cell('晚上／睡前平均',pm.length?f0(avg(pm,'sys'))+'/'+f0(avg(pm,'dia')):'—',pm.length+' 筆'),
+    cell('達 130/80 以上',list.length?Math.round(over/list.length*100)+'%':'—',list.length?over+' / '+list.length+' 筆':''),
+    cell('平均心跳',pul.length?f0(avg(pul,'pulse')):'—','次/分')
+  ].join('');
+  const cnt=[0,0,0,0,0];list.forEach(r=>cnt[cat(+r.sys,+r.dia)]++);
+  $('#dist').innerHTML=list.length?cnt.map((c,i)=>c?`<span style="width:${c/list.length*100}%;background:${CATS[i][1]}" title="${CATS[i][0]} ${c}"></span>`:'').join(''):'';
+  $('#dl').innerHTML=CATS.map((c,i)=>`<span><i style="background:${c[1]}"></i>${c[0]} ${cnt[i]}</span>`).join('');
+  const demo=isDemo();
+  if(one){
+    $('#th').innerHTML='<tr><th>日期</th><th>時間</th><th class="r">收縮壓</th><th class="r">舒張壓</th><th class="r">心跳</th><th>分級</th><th>備註</th><th></th></tr>';
+    const sorted=[...list].sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
+    $('#tb').innerHTML=sorted.length?sorted.map(r=>{const c=cat(+r.sys,+r.dia);return`<tr class="${c>=3?'hi':''}">
+      <td data-l="日期" class="num">${md(r)}</td><td data-l="時間">${esc(r.slot)} <span class="num">${esc(r.time)}</span></td>
+      <td data-l="收縮壓" class="r num" style="color:var(--sys)">${r.sys}</td><td data-l="舒張壓" class="r num" style="color:var(--dia)">${r.dia}</td>
+      <td data-l="心跳" class="r num">${r.pulse||'—'}</td><td data-l="分級"><span style="color:${CATS[c][1]};font-weight:700">${CATS[c][0]}</span></td>
+      <td data-l="備註">${esc(r.note)||'—'}</td>
+      <td data-l="">${demo?'':`<div class="act"><button data-e="${esc(r.id)}">編輯</button><button data-d="${esc(r.id)}">刪除</button></div>`}</td></tr>`}).join(''):`<tr><td colspan="8" class="mute">這個月還沒有紀錄。</td></tr>`;
+  }else{
+    $('#th').innerHTML='<tr><th>月份</th><th class="r">筆數</th><th class="r">天數</th><th class="r">平均</th><th class="r">最高</th><th class="r">達 130/80</th><th>分級</th></tr>';
+    const by={};list.forEach(r=>{const k=r.date.slice(0,7);(by[k]=by[k]||[]).push(r)});
+    const ks=Object.keys(by).sort().reverse();
+    $('#tb').innerHTML=ks.length?ks.map(k=>{const a=by[k],s=avg(a,'sys'),d=avg(a,'dia'),c=cat(Math.round(s),Math.round(d)),top=a.reduce((p,r)=>!p||+r.sys>+p.sys?r:p,null),o=a.filter(r=>+r.sys>=130||+r.dia>=80).length;
+      return`<tr class="go${c>=3?' hi':''}" data-m="${k}" title="看這個月的明細"><td data-l="月份" class="num">${k.replace('-','/')}</td><td data-l="筆數" class="r num">${a.length}</td><td data-l="天數" class="r num">${new Set(a.map(r=>r.date)).size}</td>
+      <td data-l="平均" class="r num"><span style="color:var(--sys)">${f0(s)}</span>/<span style="color:var(--dia)">${f0(d)}</span></td><td data-l="最高" class="r num">${top.sys}/${top.dia}</td>
+      <td data-l="達 130/80" class="r num">${Math.round(o/a.length*100)}%</td><td data-l="分級"><span style="color:${CATS[c][1]};font-weight:700">${CATS[c][0]}</span></td></tr>`}).join(''):`<tr><td colspan="7" class="mute">這段期間還沒有紀錄。</td></tr>`;
+  }
+  const td=src().filter(r=>r.date===todayIso);
+  $('#today').textContent=td.length?`今天已記錄 ${td.length} 次，平均 ${f0(avg(td,'sys'))}/${f0(avg(td,'dia'))}`+(demo?'（示範）':''):'今天還沒有紀錄';
+  draw();
+}
+
+function toast(msg,undo){
+  $('#tMsg').textContent=msg;$('#tUndo').hidden=!undo;$('#toast').style.display='flex';
+  clearTimeout(toast.t);toast.t=setTimeout(()=>$('#toast').style.display='none',undo?6000:2500);
+}
+const setStatus=t=>$('#status').textContent=t;
+const clean=r=>({id:r.id,date:r.date,time:r.time,slot:r.slot,sys:r.sys,dia:r.dia,pulse:r.pulse??null,note:r.note||'',ts:r.ts||0});
+
+const localStore={
+  load(){try{return JSON.parse(localStorage.getItem('bp-rows')||'[]')}catch(e){return[]}},
+  save(){try{localStorage.setItem('bp-rows',JSON.stringify(rows))}catch(e){}},
+  async put(r){const i=rows.findIndex(x=>x.id===r.id);i<0?rows.push(r):rows[i]=r;this.save();render()},
+  async del(id){rows=rows.filter(x=>x.id!==id);this.save();render()},
+  async putMany(list){rows=rows.concat(list);this.save();render()}
+};
+rows=localStore.load();store=localStore;
+setStatus('紀錄存在這支手機裡，記得每月備份一次');
+
+/* Cloud: one document per month (m2026-11) holding that month's readings. */
+async function initDb(){
+  try{
+    const db=await claude.use('db'),u=await claude.use('user'),uid=u&&await u.id();
+    if(!db||!uid)return;
+    const col=db.collection('data/users/'+uid);
+    let q=Promise.resolve();const enq=fn=>(q=q.then(fn,fn));
+    const writeMonth=k=>enq(()=>{const a=rows.filter(r=>r.date.startsWith(k)&&!r._legacy).map(clean);const ref=col.doc('m'+k);return a.length?ref.set({readings:a}):ref.delete()});
+    const pending=localStore.load();let first=true;
+    const t=setTimeout(()=>setStatus('暫時連不上雲端資料，連上後會自動更新'),10000);
+    const unsub=col.onSnapshot(async s=>{
+      if(!s.metadata.fromCache){clearTimeout(t);setStatus('已儲存在你的 Claude 帳號，只有你看得到')}
+      const out=[];
+      for(const d of s.docs){const b=d.data()||{};
+        if(Array.isArray(b.readings))b.readings.forEach(r=>out.push({...r}));
+        else if(b.sys)out.push({...b,id:d.id,_legacy:true});}
+      rows=out;demoCache=demoCache;render();
+      if(first&&!s.metadata.fromCache){first=false;
+        const have=new Set(rows.map(r=>r.id)),months=new Set();
+        for(const r of pending)if(!have.has(r.id)){rows.push(clean(r));months.add(r.date.slice(0,7))}
+        const legacy=rows.filter(r=>r._legacy);
+        for(const r of legacy){delete r._legacy;months.add(r.date.slice(0,7))}
+        for(const k of months)await writeMonth(k).catch(()=>{});
+        for(const r of legacy)await enq(()=>col.doc(r.id).delete()).catch(()=>{});
+      }
+    },e=>{clearTimeout(t);setStatus('雲端資料無法讀取（'+e.code+'）')});
+    const toLocal=e=>{if(!e||(e.code!=='invalid_argument'&&e.code!=='revoked'))throw e;
+      try{unsub()}catch(x){}rows=localStore.load();store=localStore;setStatus('你目前無法存到雲端，紀錄改存在這台裝置的瀏覽器');return true};
+    const cloudStore={
+      async put(r){const old=rows.find(x=>x.id===r.id);const ks=new Set([r.date.slice(0,7)]);if(old)ks.add(old.date.slice(0,7));
+        rows=rows.filter(x=>x.id!==r.id).concat([r]);render();
+        for(const k of ks)await writeMonth(k);
+        if(old&&old._legacy)await enq(()=>col.doc(old.id).delete());},
+      async del(id){const old=rows.find(x=>x.id===id);if(!old)return;rows=rows.filter(x=>x.id!==id);render();
+        if(old._legacy)await enq(()=>col.doc(id).delete());else await writeMonth(old.date.slice(0,7));}
+    };
+    cloudStore.putMany=async list=>{rows=rows.concat(list);render();for(const k of new Set(list.map(r=>r.date.slice(0,7))))await writeMonth(k)};
+    store={
+      async putMany(list){try{await cloudStore.putMany(list)}catch(e){if(toLocal(e))await localStore.putMany(list)}},
+      async put(r){try{await cloudStore.put(r)}catch(e){if(toLocal(e))await localStore.put(r)}},
+      async del(id){try{await cloudStore.del(id)}catch(e){if(toLocal(e))await localStore.del(id)}}
+    };
+  }catch(e){}
+}
+
+function setTime(t){const[h,m]=String(t||'08:00').split(':');$('#fH').value=pad(+h||0);$('#fM').value=pad(+m||0);$('#fTime').value=$('#fH').value+':'+$('#fM').value}
+function resetForm(){
+  editId=null;const d=new Date();
+  $('#fDate').value=isoD(d);setTime(pad(d.getHours())+':'+pad(d.getMinutes()));
+  $('#fSlot').value=slotOf(d.getHours());
+  ['#fSys','#fDia','#fPul','#fNote'].forEach(k=>$(k).value='');
+  $('#fTitle').textContent='新增量測';$('#fSave').textContent='儲存';$('#fCancel').hidden=true;$('#fErr').textContent='';
+}
+$('#fH').innerHTML=Array.from({length:24},(_,i)=>`<option>${pad(i)}</option>`).join('');
+$('#fM').innerHTML=Array.from({length:60},(_,i)=>`<option>${pad(i)}</option>`).join('');
+const syncTime=()=>{$('#fTime').value=$('#fH').value+':'+$('#fM').value;$('#fSlot').value=slotOf(+$('#fH').value)};
+$('#fH').addEventListener('change',syncTime);$('#fM').addEventListener('change',syncTime);
+$('#fNow').addEventListener('click',()=>{const d=new Date();setTime(pad(d.getHours())+':'+pad(d.getMinutes()));$('#fSlot').value=slotOf(d.getHours())});
+$('#f').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const s=+$('#fSys').value,d=+$('#fDia').value,p=$('#fPul').value.trim()?+$('#fPul').value:null,err=$('#fErr');
+  if(!$('#fDate').value||!$('#fTime').value)return err.textContent='請填日期和時間';
+  if(!(s>=60&&s<=260))return err.textContent='收縮壓請輸入 60–260';
+  if(!(d>=30&&d<=160))return err.textContent='舒張壓請輸入 30–160';
+  if(d>=s)return err.textContent='舒張壓應小於收縮壓，請再確認';
+  if(p!==null&&!(p>=30&&p<=220))return err.textContent='心跳請輸入 30–220';
+  const old=editId&&rows.find(x=>x.id===editId);
+  const r={id:editId||('r'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)),date:$('#fDate').value,time:$('#fTime').value,slot:$('#fSlot').value,sys:s,dia:d,pulse:p,note:$('#fNote').value.trim(),ts:Date.now()};
+  if(old&&old._legacy)r._legacy=true;
+  const was=editId;
+  try{await store.put(r)}catch(x){return err.textContent='儲存失敗，請再試一次（'+(x&&x.code||'')+'）'}
+  const [y,m]=r.date.split('-').map(Number);
+  if(!inWin(r,win())){cur={y,m:m-1}}
+  resetForm();render();toast(was?'已更新':'已儲存 '+s+'/'+d+(cat(s,d)>=4?' · 數值很高，請留意身體狀況':''));
+});
+$('#fCancel').addEventListener('click',resetForm);
+$('#tb').addEventListener('click',async e=>{
+  const tr=e.target.closest('tr.go');
+  if(tr){const[y,m]=tr.dataset.m.split('-').map(Number);cur={y,m:m-1};setSpan(1);return}
+  const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.e){const r=rows.find(x=>x.id===b.dataset.e);if(!r)return;editId=r.id;
+    $('#fDate').value=r.date;setTime(r.time);$('#fSlot').value=r.slot;$('#fSys').value=r.sys;$('#fDia').value=r.dia;$('#fPul').value=r.pulse??'';$('#fNote').value=r.note||'';
+    $('#fTitle').textContent='編輯量測';$('#fSave').textContent='更新';$('#fCancel').hidden=false;$('#f').scrollIntoView({behavior:'smooth',block:'start'});$('#fSys').focus({preventScroll:true});}
+  if(b.dataset.d){
+    if(!b.dataset.sure){b.dataset.sure=1;b.textContent='確定刪除？';setTimeout(()=>{if(b.isConnected){delete b.dataset.sure;b.textContent='刪除'}},3000);return}
+    lastDel=rows.find(x=>x.id===b.dataset.d);if(lastDel)lastDel={...lastDel,_legacy:false};
+    try{await store.del(b.dataset.d);toast('已刪除一筆',true)}catch(x){toast('刪除失敗，請再試一次')}
+  }
+});
+$('#tUndo').addEventListener('click',async()=>{if(lastDel){const r=lastDel;delete r._legacy;lastDel=null;try{await store.put(r);toast('已復原')}catch(e){toast('復原失敗')}}});
+function setSpan(v){span=v;try{localStorage.setItem('bp-span',v)}catch(e){}render()}
+$('#seg').addEventListener('click',e=>{const b=e.target.closest('button');if(b){cur={y:now.getFullYear(),m:now.getMonth()};setSpan(+b.dataset.s)}});
+$('#prev').addEventListener('click',()=>{const d=new Date(cur.y,cur.m-span,1);cur={y:d.getFullYear(),m:d.getMonth()};render()});
+$('#next').addEventListener('click',()=>{const d=new Date(cur.y,cur.m+span,1);if(mk(d.getFullYear(),d.getMonth())>nowKey)return;cur={y:d.getFullYear(),m:d.getMonth()};render()});
+$('#goAdd').addEventListener('click',()=>{resetForm();$('#f').scrollIntoView({behavior:'smooth'});$('#fSys').focus({preventScroll:true})});
+$('#copy').addEventListener('click',async()=>{
+  const list=isDemo()?[]:winRows().sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  if(!list.length)return toast('這段期間沒有可複製的紀錄');
+  const csv=['日期,時間,時段,收縮壓,舒張壓,心跳,分級,備註',...list.map(r=>[r.date,r.time,r.slot,r.sys,r.dia,r.pulse??'',CATS[cat(r.sys,r.dia)][0],'"'+String(r.note||'').replace(/"/g,'""')+'"'].join(','))].join('\n');
+  try{await navigator.clipboard.writeText(csv);toast('已複製 '+list.length+' 筆，可貼到 Excel 或給醫師')}catch(e){toast('無法存取剪貼簿')}
+});
+/* ---- import ---- */
+function parseCSV(t){
+  const out=[];let row=[],f='',q=false;
+  t=t.replace(/^\uFEFF/,'');
+  for(let i=0;i<t.length;i++){const c=t[i];
+    if(q){if(c==='"'){if(t[i+1]==='"'){f+='"';i++}else q=false}else f+=c}
+    else if(c==='"')q=true;
+    else if(c===','||c==='\t'){row.push(f);f=''}
+    else if(c==='\n'||c==='\r'){if(c==='\r'&&t[i+1]==='\n')i++;row.push(f);f='';if(row.some(x=>x.trim()))out.push(row);row=[]}
+    else f+=c}
+  row.push(f);if(row.some(x=>x.trim()))out.push(row);
+  return out;
+}
+let impRows=[];
+function previewImport(text){
+  const msg=$('#impMsg'),go=$('#impGo');impRows=[];go.disabled=true;
+  if(!text.trim()){msg.textContent='';return}
+  const lines=parseCSV(text);if(!lines.length){msg.textContent='讀不到資料';return}
+  let h=lines[0].map(x=>x.trim()),idx={};
+  const names={date:['日期','date'],time:['時間','time'],slot:['時段','slot'],sys:['收縮壓','sys','systolic'],dia:['舒張壓','dia','diastolic'],pulse:['心跳','脈搏','pulse'],note:['備註','note']};
+  for(const k in names)idx[k]=h.findIndex(x=>names[k].includes(x.toLowerCase?x.toLowerCase():x)||names[k].includes(x));
+  let body=lines.slice(1);
+  if(idx.date<0||idx.sys<0||idx.dia<0){idx={date:0,time:1,slot:2,sys:3,dia:4,pulse:5,note:7};body=lines}
+  const have=new Set(rows.map(r=>r.date+'|'+r.time+'|'+r.sys+'|'+r.dia));
+  let bad=0,dup=0;
+  for(const c of body){
+    const g=k=>idx[k]>=0&&c[idx[k]]!=null?String(c[idx[k]]).trim():'';
+    const dm=g('date').match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/),tm=g('time').match(/^(\d{1,2}):(\d{2})/);
+    const sy=+g('sys'),di=+g('dia'),pu=g('pulse')?+g('pulse'):null;
+    if(!dm||!(sy>=60&&sy<=260)||!(di>=30&&di<=160)||di>=sy){bad++;continue}
+    const date=dm[1]+'-'+pad(+dm[2])+'-'+pad(+dm[3]),time=tm?pad(+tm[1])+':'+tm[2]:'08:00';
+    const key=date+'|'+time+'|'+sy+'|'+di;if(have.has(key)){dup++;continue}have.add(key);
+    let slot=g('slot');if(!['早上','中午','下午','晚上','睡前','其他'].includes(slot))slot=slotOf(+time.slice(0,2));
+    impRows.push({id:'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,8),date,time,slot,sys:sy,dia:di,pulse:pu>=30&&pu<=220?pu:null,note:g('note').slice(0,80),ts:Date.now()});
+  }
+  const ds=impRows.map(r=>r.date).sort();
+  msg.textContent=impRows.length?`可匯入 ${impRows.length} 筆（${ds[0].replace(/-/g,'/')} 至 ${ds[ds.length-1].replace(/-/g,'/')}）`+(dup?`，${dup} 筆重複會略過`:'')+(bad?`，${bad} 行格式不對會略過`:''):`沒有新的紀錄可以匯入`+(dup?`（${dup} 筆重複）`:'')+(bad?`，${bad} 行格式不對`:'');
+  go.disabled=!impRows.length;
+}
+const closeImp=()=>{$('#imp').hidden=true;$('#impText').value='';$('#impFile').value='';previewImport('')};
+$('#impOpen').addEventListener('click',()=>{$('#imp').hidden=false;$('#impText').focus()});
+$('#impCancel').addEventListener('click',closeImp);
+let impT;$('#impText').addEventListener('input',e=>{clearTimeout(impT);impT=setTimeout(()=>previewImport(e.target.value),250)});
+$('#impFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{const t=await f.text();$('#impText').value=t;previewImport(t)}catch(x){$('#impMsg').textContent='檔案讀不出來'}});
+$('#impGo').addEventListener('click',async()=>{
+  if(!impRows.length)return;const n=impRows.length,last=impRows.map(r=>r.date).sort().pop();
+  $('#impGo').disabled=true;
+  try{await store.putMany(impRows)}catch(e){$('#impMsg').textContent='匯入失敗，請再試一次';$('#impGo').disabled=false;return}
+  const[y,m]=last.split('-').map(Number);cur={y,m:m-1};closeImp();render();toast('已匯入 '+n+' 筆');
+});
+new ResizeObserver(draw).observe($('#chart'));
+resetForm();render();
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+
+</script>
+</body>
+</html>
